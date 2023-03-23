@@ -39,7 +39,7 @@ jobs:
 
               git clone -q --depth=1 --branch ${t} --progress $APP_REPO
               cd kubernetes
-              git checkout -b ${APP_VERSION} ${APP_VERSION}
+              git checkout -b ${t} ${t}
               git branch
   
               # 10 year
