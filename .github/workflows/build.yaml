@@ -1,0 +1,63 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+    branches:
+      - master
+      - main
+  schedule:
+    - cron:  '0 5 * * 1'
+  workflow_dispatch:
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Build kubeadm binary
+        id: build_kubeadm
+        run: |
+          APP=kubeadm
+          APP_VERSION=$(cat version.txt)
+          APP_REPO="https://github.com/kubernetes/kubernetes.git"
+          
+          ADD_TAG=${APP_VERSION}
+            git clone -q --depth=1 --branch ${APP_VERSION} --progress $APP_REPO
+            cd kubernetes
+            git checkout -b ${APP_VERSION} ${APP_VERSION}
+            git branch
+            
+            # 100 year
+            sed -i 's/duration365d \* 10/duration365d * 100/g' staging/src/k8s.io/client-go/util/cert/cert.go
+            sed -i 's#time.Hour \* 24 \* 365#time.Hour * 24 * 365 * 100#g'  cmd/kubeadm/app/constants/constants.go
+            grep -n -R CertificateValidity ./*
+            grep -n -R duration365d ./*
+            
+            git diff
+            # make build
+            build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/amd64
+            build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/arm64
+            mkdir -p ./bin
+            mv _output/dockerized/bin/linux/amd64/kubeadm ./bin/kubeadm-linux-amd64
+            mv _output/dockerized/bin/linux/arm64/kubeadm ./bin/kubeadm-linux-arm64
+            ls -lah  bin/
+            cd ./bin 
+            sha256sum kubeadm-linux-{amd64,arm64} > sha256sum.txt
+            echo "ADD_TAG=${ADD_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: ${{ steps.build_kubeadm.outputs.ADD_TAG != '' }}
+        with:
+          token: ${{ secrets.TOKEN }}
+          tag_name: "${{ steps.build_kubeadm.outputs.ADD_TAG }}"
+          files: |
+            ./kubernetes/bin/kubeadm-linux-amd64
+            ./kubernetes/bin/kubeadm-linux-arm64
+          body_path: ./kubernetes/bin/sha256sum.txt
