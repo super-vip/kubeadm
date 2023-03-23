@@ -81,7 +81,7 @@ jobs:
               
               cd kubernetes/bin/
               ls -lah  ./*
-              sha256sum kubeadm-linux-{amd64,arm64}* > sha256sum.txt
+              sha256sum kubeadm-linux-* > sha256sum.txt
               ADD_TAG=$t
               echo "ADD_TAG=${ADD_TAG}" >> $GITHUB_OUTPUT
               cd ../../
