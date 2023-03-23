@@ -91,11 +91,10 @@ jobs:
             fi 
           done
       - name: Push changes
-        uses: github-actions-x/commit@v2.9
+        uses: serialt/push@master
         if: ${{ steps.build_kubeadm.outputs.ADD_TAG != '' }}
         with:
-          github-token: ${{ secrets.TOKEN }}
-          push-branch: ${{ github.ref }}
+          github_token: ${{ secrets.TOKEN }}
       - name: Release
         uses: softprops/action-gh-release@v1
         if: ${{ steps.build_kubeadm.outputs.ADD_TAG != '' }}
