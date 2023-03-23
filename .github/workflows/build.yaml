@@ -89,8 +89,12 @@ jobs:
               echo "::debug::[skip] $t"
             fi 
           done
-
-
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        if: ${{ steps.build_kubeadm.outputs.ADD_TAG != '' }}
+        with:
+          github_token: ${{ secrets.TOKEN }}
+          branch: ${{ github.ref }}
       - name: Release
         uses: softprops/action-gh-release@v1
         if: ${{ steps.build_kubeadm.outputs.ADD_TAG != '' }}
