@@ -30,6 +30,7 @@ jobs:
           tags="$(git ls-remote --tags $APP_REPO | grep 'v[1-9]\.[0-9]*\.[0-9]*$' | awk -F'tags/' '{print $2}' | sort -t. -k1,1n -k2,2n -k3,3n)"
           new_tags="$(printf "%s" "$tags"| sed -n '{/\.0$/{g;p}};h' | tail -1) $(printf "%s" "$tags" | tail -1)"
           echo "::debug::[Tags] $new_tags"
+          set -x
           for t in $new_tags; do
             echo "[check] $t"
             b=$(echo "${APP_VERSION}" | grep -w ${t} | wc -l)
@@ -47,11 +48,11 @@ jobs:
               grep -n -R duration365d ./*
               git diff
               # make build
-              build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/amd64
-              build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/arm64
+              build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/amd64 &> /dev/null
+              build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/arm64 &> /dev/null
               mkdir -p ./bin
-              mv _output/dockerized/bin/linux/amd64/kubeadm ./bin/kubeadm-linux-amd64-10
-              mv _output/dockerized/bin/linux/arm64/kubeadm ./bin/kubeadm-linux-arm64-10      
+              mv _output/dockerized/bin/linux/amd64/kubeadm ./bin/kubeadm-linux-amd64-10 &> /dev/null
+              mv _output/dockerized/bin/linux/arm64/kubeadm ./bin/kubeadm-linux-arm64-10 &> /dev/null  
               rm -rf  ./_output
               
               # 100 year
