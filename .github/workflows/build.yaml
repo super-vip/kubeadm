@@ -10,7 +10,7 @@ on:
       - master
       - main
   schedule:
-    - cron:  '0 5 * * 1'
+    - cron:  '0 5 * * 2'
   workflow_dispatch:
 
 
@@ -27,42 +27,69 @@ jobs:
           APP_VERSION=$(cat version.txt)
           APP_REPO="https://github.com/kubernetes/kubernetes.git"
           
-          ADD_TAG=${APP_VERSION}
-            git clone -q --depth=1 --branch ${APP_VERSION} --progress $APP_REPO
-            cd kubernetes
-            git checkout -b ${APP_VERSION} ${APP_VERSION}
-            git branch
+          ADD_TAG=""
+          tags="$(git ls-remote --tags $APP_REPO | grep 'v[1-9]\.[0-9]*\.[0-9]*$' | awk -F'tags/' '{print $2}' | sort -t. -k1,1n -k2,2n -k3,3n)"
+          new_tags="$(printf "%s" "$tags"| sed -n '{/\.0$/{g;p}};h' | tail -1) $(printf "%s" "$tags" | tail -1)"
+          echo "::debug::[Tags] $new_tags"
+          for t in $new_tags; do
+            echo "[check] $t"
+            b=$(echo "${APP_VERSION}" | grep -w ${t} | wc -l)
+            if [[ $b == 0 ]]; then
+              echo "::group::[Build] $t"
 
-            # 10 year
-            sed -i 's#time.Hour \* 24 \* 365#time.Hour * 24 * 365 * 10#g'  cmd/kubeadm/app/constants/constants.go
-            grep -n -R CertificateValidity ./*
-            grep -n -R duration365d ./*
-            git diff
-            # make build
-            build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/amd64
-            build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/arm64
-            mkdir -p ./bin
-            mv _output/dockerized/bin/linux/amd64/kubeadm ./bin/kubeadm-linux-amd64-10
-            mv _output/dockerized/bin/linux/arm64/kubeadm ./bin/kubeadm-linux-arm64-10      
-            rm -rf  ./_output
-            
-            # 100 year
-            sed -i 's/duration365d \* 10/duration365d * 100/g' staging/src/k8s.io/client-go/util/cert/cert.go
-            sed -i 's#time.Hour \* 24 \* 365 \* 10#time.Hour * 24 * 365 * 100#g'  cmd/kubeadm/app/constants/constants.go
-            grep -n -R CertificateValidity ./*
-            grep -n -R duration365d ./*
-            
-            git diff
-            # make build
-            build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/amd64
-            build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/arm64
+              git clone -q --depth=1 --branch ${t} --progress $APP_REPO
+              cd kubernetes
+              git checkout -b ${APP_VERSION} ${APP_VERSION}
+              git branch
+  
+              # 10 year
+              sed -i 's#time.Hour \* 24 \* 365#time.Hour * 24 * 365 * 10#g'  cmd/kubeadm/app/constants/constants.go
+              grep -n -R CertificateValidity ./*
+              grep -n -R duration365d ./*
+              git diff
+              # make build
+              build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/amd64
+              build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/arm64
+              mkdir -p ./bin
+              mv _output/dockerized/bin/linux/amd64/kubeadm ./bin/kubeadm-linux-amd64-10
+              mv _output/dockerized/bin/linux/arm64/kubeadm ./bin/kubeadm-linux-arm64-10      
+              rm -rf  ./_output
+              
+              # 100 year
+              sed -i 's/duration365d \* 10/duration365d * 100/g' staging/src/k8s.io/client-go/util/cert/cert.go
+              sed -i 's#time.Hour \* 24 \* 365 \* 10#time.Hour * 24 * 365 * 100#g'  cmd/kubeadm/app/constants/constants.go
+              grep -n -R CertificateValidity ./*
+              grep -n -R duration365d ./*
+              
+              git diff
+              # make build
+              build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/amd64
+              build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/arm64
+  
+              mv _output/dockerized/bin/linux/amd64/kubeadm ./bin/kubeadm-linux-amd64-100
+              mv _output/dockerized/bin/linux/arm64/kubeadm ./bin/kubeadm-linux-arm64-100
 
-            mv _output/dockerized/bin/linux/amd64/kubeadm ./bin/kubeadm-linux-amd64-100
-            mv _output/dockerized/bin/linux/arm64/kubeadm ./bin/kubeadm-linux-arm64-100
-            ls -lah  bin/
-            cd ./bin 
-            sha256sum kubeadm-linux-{amd64,arm64}* > sha256sum.txt
-            echo "ADD_TAG=${ADD_TAG}" >> $GITHUB_OUTPUT
+              # git commit
+              cd ../
+              echo "::debug::[Push file]"
+              echo "${t}" >> version.txt
+              git config --global user.email "tserialt@gmail.com"
+              git config --global user.name "serialt"
+              git config --global --add safe.directory /github/workspace
+              git add version.txt
+              git commit -m "$APP $ADD_TAG (Github Actions Automatically Built in `date +"%Y-%m-%d %H:%M"`)"
+              
+              cd kubernetes/bin/
+              ls -lah  ./*
+              sha256sum kubeadm-linux-{amd64,arm64}* > sha256sum.txt
+              ADD_TAG=$t
+              echo "ADD_TAG=${ADD_TAG}" >> $GITHUB_OUTPUT
+              break
+            else
+              echo "::debug::[skip] $t"
+            fi 
+          done
+
 
       - name: Release
         uses: softprops/action-gh-release@v1
