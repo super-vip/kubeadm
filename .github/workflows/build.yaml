@@ -109,4 +109,5 @@ jobs:
             ./kubernetes/bin/kubeadm-linux-arm64-10
             ./kubernetes/bin/kubeadm-linux-amd64-100
             ./kubernetes/bin/kubeadm-linux-arm64-100
+            ./kubernetes/bin/sha256sum.txt
           body_path: ./kubernetes/bin/sha256sum.txt
