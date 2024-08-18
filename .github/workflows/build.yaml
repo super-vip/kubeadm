@@ -47,8 +47,7 @@ jobs:
   
               # 10 year
               sed -i '/[[:space:]]CertificateValidityPeriod/s#time.Hour \* 24 \* 365#time.Hour * 24 * 365 * 10#g'  cmd/kubeadm/app/constants/constants.go
-              grep -n -R CertificateValidity ./*
-              grep -n -R duration365d ./*
+              git status
               git diff
               # make build
               build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/amd64 &> /dev/null
@@ -62,8 +61,8 @@ jobs:
               sed -i 's/duration365d \* 10/duration365d * 100/g' staging/src/k8s.io/client-go/util/cert/cert.go
               sed -i '/[[:space:]]CertificateValidityPeriod/s#time.Hour \* 24 \* 365#time.Hour * 24 * 365 * 10#g'  cmd/kubeadm/app/constants/constants.go
               sed -i '/CACertificateValidityPeriod/s#time.Hour \* 24 \* 365#time.Hour * 24 * 365 * 10#g'  cmd/kubeadm/app/constants/constants.go
-              grep -n -R CertificateValidity ./*
-              grep -n -R duration365d ./*
+              git status
+              git diff
               git diff
               # # make build
               build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/amd64
