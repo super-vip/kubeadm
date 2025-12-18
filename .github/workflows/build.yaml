@@ -20,7 +20,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          # ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
           persist-credentials: true
       - name: Build kubeadm binary
         id: build_kubeadm
@@ -96,7 +95,7 @@ jobs:
         uses: ad-m/github-push-action@master
         if: ${{ steps.build_kubeadm.outputs.ADD_TAG != '' }}
         with:
-          ssh: true
+          github_token: ${{ secrets.TOKEN }}
           branch: ${{ github.ref }}
       - name: Release
         uses: softprops/action-gh-release@v1
