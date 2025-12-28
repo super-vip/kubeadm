@@ -33,44 +33,47 @@ jobs:
           set -x
           new_tags="$(printf "%s" "$tags"| sed -n '{/\.0$/{g;p}};h' | tail -3) $(printf "%s" "$tags" | tail -1)"
           echo "::debug::[Tags] $new_tags"
+
           for t in $new_tags; do
             echo "[check] $t"
             b=$(echo "${APP_VERSION}" | grep -w ${t} | wc -l)
             if [[ $b == 0 ]]; then
               echo "::group::[Build] $t"
 
+              # clone 对应 tag
               git clone -q --depth=1 --branch ${t} --progress $APP_REPO
               cd kubernetes
               git checkout -b ${t} ${t}
-              git branch
-  
-              # 10 year
-              sed -i '/[[:space:]]CertificateValidityPeriod/s#time.Hour \* 24 \* 365#time.Hour * 24 * 365 * 10#g'  cmd/kubeadm/app/constants/constants.go
-              git status
-              git diff
-              # make build
+
+              # 官方 commit hash
+              GIT_COMMIT=$(git rev-parse HEAD)
+              GIT_VERSION="${t}"
+
+              # 设置官方版本信息，生成干净 kubeadm
+              export KUBE_GIT_VERSION="${GIT_VERSION}"
+              export KUBE_GIT_COMMIT="${GIT_COMMIT}"
+              export KUBE_GIT_TREE_STATE="clean"
+
+              # ====== 10 year 证书 ======
+              sed -i '/[[:space:]]CertificateValidityPeriod/s#time.Hour \* 24 \* 365#time.Hour * 24 * 365 * 10#g' cmd/kubeadm/app/constants/constants.go
               build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/amd64 &> /dev/null
               build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/arm64 &> /dev/null
               mkdir -p ./bin
-              mv _output/dockerized/bin/linux/amd64/kubeadm ./bin/kubeadm-linux-amd64-10 &> /dev/null
-              mv _output/dockerized/bin/linux/arm64/kubeadm ./bin/kubeadm-linux-arm64-10 &> /dev/null  
-              rm -rf  ./_output
-              
-              # 100 year
+              mv _output/dockerized/bin/linux/amd64/kubeadm ./bin/kubeadm-linux-amd64-10
+              mv _output/dockerized/bin/linux/arm64/kubeadm ./bin/kubeadm-linux-arm64-10
+              rm -rf ./_output
+
+              # ====== 100 year 证书 ======
               sed -i 's/duration365d \* 10/duration365d * 100/g' staging/src/k8s.io/client-go/util/cert/cert.go
-              sed -i '/[[:space:]]CertificateValidityPeriod/s#time.Hour \* 24 \* 365#time.Hour * 24 * 365 * 10#g'  cmd/kubeadm/app/constants/constants.go
-              sed -i '/CACertificateValidityPeriod/s#time.Hour \* 24 \* 365#time.Hour * 24 * 365 * 10#g'  cmd/kubeadm/app/constants/constants.go
-              git status
-              git diff
-              git diff
-              # # make build
-              build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/amd64
-              build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/arm64
-  
+              sed -i '/[[:space:]]CertificateValidityPeriod/s#time.Hour \* 24 \* 365#time.Hour * 24 * 365 * 100#g' cmd/kubeadm/app/constants/constants.go
+              sed -i '/CACertificateValidityPeriod/s#time.Hour \* 24 \* 365#time.Hour * 24 * 365 * 100#g' cmd/kubeadm/app/constants/constants.go
+              build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/amd64 &> /dev/null
+              build/run.sh make kubeadm KUBE_BUILD_PLATFORMS=linux/arm64 &> /dev/null
+
               mv _output/dockerized/bin/linux/amd64/kubeadm ./bin/kubeadm-linux-amd64-100
               mv _output/dockerized/bin/linux/arm64/kubeadm ./bin/kubeadm-linux-arm64-100
 
-              # git commit
+              # git commit version.txt
               cd ../
               echo "::debug::[Push file]"
               echo "${t}" >> version.txt
@@ -79,24 +82,28 @@ jobs:
               git config --global --add safe.directory /github/workspace
               git add version.txt
               git commit -m "$APP $ADD_TAG (Github Actions Automatically Built in `date +"%Y-%m-%d %H:%M"`)"
-              
+
+              # 生成 SHA256
               cd kubernetes/bin/
-              ls -lah  ./*
+              ls -lah ./*
               sha256sum kubeadm-linux-* > sha256sum.txt
+
               ADD_TAG=$t
               echo "ADD_TAG=${ADD_TAG}" >> $GITHUB_OUTPUT
               cd ../../
               break
             else
               echo "::debug::[skip] $t"
-            fi 
+            fi
           done
+
       - name: Push changes
         uses: ad-m/github-push-action@master
         if: ${{ steps.build_kubeadm.outputs.ADD_TAG != '' }}
         with:
           github_token: ${{ secrets.TOKEN }}
           branch: ${{ github.ref }}
+
       - name: Release
         uses: softprops/action-gh-release@v1
         if: ${{ steps.build_kubeadm.outputs.ADD_TAG != '' }}
