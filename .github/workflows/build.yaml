@@ -29,8 +29,7 @@ jobs:
           APP_REPO="https://github.com/kubernetes/kubernetes.git"
           
           ADD_TAG=""
-          # tags="$(git ls-remote --tags $APP_REPO | grep 'v[1-9]\.[0-9]*\.[0-9]*$' | awk -F'tags/' '{print $2}' | sort -t. -k1,1n -k2,2n -k3,3n)"
-          tags="$(git ls-remote --tags $APP_REPO | awk '{print $2}' | sed 's#refs/tags/##' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -t. -k1,1n -k2,2n -k3,3n)"
+          tags="$(git ls-remote --tags $APP_REPO | grep 'v[1-9]\.[0-9]*\.[0-9]*$' | awk -F'tags/' '{print $2}' | sort -t. -k1,1n -k2,2n -k3,3n)"
           set -x
           new_tags="$(printf "%s" "$tags"| sed -n '{/\.0$/{g;p}};h' | tail -3) $(printf "%s" "$tags" | tail -1)"
           echo "::debug::[Tags] $new_tags"
